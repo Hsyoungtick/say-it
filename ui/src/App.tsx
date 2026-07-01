@@ -28,7 +28,10 @@ export default function App() {
     root.style.setProperty("--color-accent", theme.accent);
     root.style.setProperty("--color-accent-light", accentLight(theme.accent));
     root.style.setProperty("--color-accent-dark", accentDark(theme.accent));
-    root.style.setProperty("--color-accent-contrast", accentContrast(theme.accent));
+    root.style.setProperty(
+      "--color-accent-contrast",
+      theme.tone === "dark" ? "#FFFFFF" : accentContrast(theme.accent),
+    );
     root.style.setProperty("--color-bg", theme.tone === "light" ? "#F4F7FB" : "#000000");
     root.style.setProperty("--color-fg", theme.tone === "light" ? "#111827" : "#FFFFFF");
     root.style.setProperty("--color-fg-muted", theme.tone === "light" ? "rgba(17, 24, 39, 0.68)" : "rgba(255, 255, 255, 0.7)");
