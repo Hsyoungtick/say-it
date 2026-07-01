@@ -36,6 +36,7 @@ export const CMD = {
   setStartupSettings: "set_startup_settings",
   setDebugLog: "set_debug_log",
   listSystemFonts: "list_system_fonts",
+  listAudioDevices: "list_audio_devices",
 } as const;
 
 export const EVT = {
