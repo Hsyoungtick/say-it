@@ -34,9 +34,7 @@ export function IndicatorApp() {
   const textFlowRef = useRef<HTMLDivElement>(null);
   const textContentRef = useRef<HTMLDivElement>(null);
 
-  const pendingText = useRef("");
   const displayedText = useRef("");
-  const renderFrame = useRef(0);
   const lastTransform = useRef("");
 
   const paintText = (next: string) => {
@@ -89,7 +87,6 @@ export function IndicatorApp() {
   };
 
   const resetText = () => {
-    pendingText.current = "";
     displayedText.current = "";
     if (textContentRef.current) {
       textContentRef.current.textContent = "";
@@ -112,28 +109,23 @@ export function IndicatorApp() {
     renderText(nextText);
   };
 
+  // 指示器窗口创建时 focused(false)，长期不拿系统焦点；WebView2 会把这类窗口当作
+  // 后台页面节流甚至完全暂停 requestAnimationFrame，导致文字更新“卡在”最后一次绘制
+  // 之前的状态（识别结果其实在正常更新，只是从未被画出来）。这里改成收到事件就同步绘制。
   const renderText = (nextText: string) => {
     if (!nextText) {
-      if (renderFrame.current) {
-        cancelAnimationFrame(renderFrame.current);
-        renderFrame.current = 0;
-      }
       resetText();
       return;
     }
-    pendingText.current =
+    const next =
       nextText.length > MAX_RENDER_CHARS
         ? nextText.slice(-MAX_RENDER_CHARS).replace(/^\s+/, "")
         : nextText;
     textElRef.current?.classList.remove("empty");
-    if (renderFrame.current) return;
-    renderFrame.current = requestAnimationFrame(() => {
-      renderFrame.current = 0;
-      if (displayedText.current !== pendingText.current) {
-        paintText(pendingText.current);
-      }
-      applyScroll();
-    });
+    if (displayedText.current !== next) {
+      paintText(next);
+    }
+    applyScroll();
   };
 
   useTauriEvent<{ state?: Phase }>(EVT.indicatorState, (payload) => {
@@ -150,12 +142,6 @@ export function IndicatorApp() {
     setMode(payload.mode || "dictation");
     if (payload.subtitle) setSubtitleConfig(payload.subtitle);
   });
-
-  useEffect(() => {
-    return () => {
-      if (renderFrame.current) cancelAnimationFrame(renderFrame.current);
-    };
-  }, []);
 
   useEffect(() => {
     const isMod = (code: string) =>
