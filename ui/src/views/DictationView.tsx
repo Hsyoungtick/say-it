@@ -20,8 +20,8 @@ const toneClass: Record<string, string> = {
 type TabKey = "basic" | "local" | "debug";
 
 const TABS: TabItem<TabKey>[] = [
-  { key: "basic", label: "快捷键" },
-  { key: "local", label: "本地处理" },
+  { key: "basic", label: "通用设置" },
+  { key: "local", label: "文本处理" },
   { key: "debug", label: "调试" },
 ];
 

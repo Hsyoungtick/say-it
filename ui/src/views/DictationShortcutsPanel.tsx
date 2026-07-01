@@ -3,10 +3,17 @@ import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { useDictationStore } from "@/store/useDictationStore";
+import { useDictPrefs } from "@/store/useDictPrefs";
+import { useAudioDevices } from "@/features/audio/devices";
 import { startShortcutCapture, setInjectMethod } from "@/features/dictation/controller";
+
+const DEFAULT_INPUT_VALUE = "";
 
 export function DictationShortcutsPanel() {
   const { capturing, shortcutLabel, injectMethod } = useDictationStore();
+  const micDeviceId = useDictPrefs((s) => s.prefs.micDeviceId);
+  const patchDictPrefs = useDictPrefs((s) => s.patch);
+  const { inputs } = useAudioDevices();
 
   return (
     <>
@@ -24,6 +31,21 @@ export function DictationShortcutsPanel() {
                 {capturing ? "取消" : "修改"}
               </Button>
             </div>
+          </Field>
+          <Field label="声音来源">
+            <Select
+              searchable={inputs.length > 5}
+              searchPlaceholder="搜索麦克风…"
+              value={micDeviceId || DEFAULT_INPUT_VALUE}
+              onChange={(e) => patchDictPrefs({ micDeviceId: e.target.value })}
+            >
+              <option value={DEFAULT_INPUT_VALUE}>默认输入</option>
+              {inputs.map((device) => (
+                <option key={device.name} value={device.name}>
+                  {device.name}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="注入方式">
             <Select

@@ -85,9 +85,11 @@ export function LocalRulesPanel() {
 
   return (
     <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-sm font-medium text-white">本地处理</p>
       <CheckField
         checked={prefs.localRulesEnabled}
         onChange={(v) => patch({ localRulesEnabled: v })}
+        className="mt-2"
       >
         启用本地快速处理
       </CheckField>
