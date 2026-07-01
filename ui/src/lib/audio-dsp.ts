@@ -9,6 +9,10 @@ export interface DspParams {
   peakLimitDbfs: number;
   maxGainDb: number;
   vadGate: number;
+  /** 低频搁架增益（dB），拐点约 150Hz。0=不调整。 */
+  bassGainDb: number;
+  /** 高频搁架增益（dB），拐点约 4000Hz。0=不调整。 */
+  trebleGainDb: number;
 }
 
 export const dspDefaults: DspParams = {
@@ -18,6 +22,8 @@ export const dspDefaults: DspParams = {
   peakLimitDbfs: -1.0,
   maxGainDb: 40.0,
   vadGate: 0.0,
+  bassGainDb: 0.0,
+  trebleGainDb: 0.0,
 };
 
 export function dspParamsFromPrefs(prefs: Partial<DspParams> = {}): DspParams {
@@ -28,6 +34,8 @@ export function dspParamsFromPrefs(prefs: Partial<DspParams> = {}): DspParams {
     peakLimitDbfs: Number(prefs.peakLimitDbfs ?? dspDefaults.peakLimitDbfs),
     maxGainDb: Number(prefs.maxGainDb ?? dspDefaults.maxGainDb),
     vadGate: Number(prefs.vadGate ?? dspDefaults.vadGate),
+    bassGainDb: Number(prefs.bassGainDb ?? dspDefaults.bassGainDb),
+    trebleGainDb: Number(prefs.trebleGainDb ?? dspDefaults.trebleGainDb),
   };
 }
 

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { cn } from "@/lib/cn";
-import appIcon from "../../../app-icon.png";
 
 const appWindow = getCurrentWindow();
 
@@ -32,14 +31,8 @@ export function Titlebar() {
   return (
     <div
       data-tauri-drag-region
-      className="relative z-[100] flex h-9 flex-none items-center justify-between border-b border-white/5 bg-black/40 pl-3 backdrop-blur-md select-none"
+      className="relative z-[100] flex h-9 flex-none items-center justify-end border-b border-white/5 bg-black/40 backdrop-blur-md select-none"
     >
-      <div data-tauri-drag-region className="pointer-events-none flex items-center gap-2">
-        <img data-tauri-drag-region src={appIcon} alt="" className="h-[18px] w-[18px] rounded-[5px]" />
-        <span data-tauri-drag-region className="text-xs font-medium text-white/60">
-          说吧！
-        </span>
-      </div>
       <div className="flex h-full items-stretch">
         <TitleBtn label="最小化" onClick={() => appWindow.minimize()}>
           <path d="M2 6h8" />

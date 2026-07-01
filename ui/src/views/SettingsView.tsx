@@ -10,7 +10,7 @@ type TabKey = "provider" | "audio" | "startup" | "mic" | "appearance";
 
 const TABS: TabItem<TabKey>[] = [
   { key: "provider", label: "密钥与识别" },
-  { key: "audio", label: "音频调教" },
+  { key: "audio", label: "录音调整" },
   { key: "startup", label: "启动设置" },
   { key: "mic", label: "麦克风与提示音" },
   { key: "appearance", label: "外观" },

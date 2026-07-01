@@ -15,12 +15,16 @@ const toneClass: Record<string, string> = {
   err: "text-[#ff6b6b]",
 };
 
+const fmtGainDb = (v: number) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`;
+
 const fmt = {
   targetLufs: (v: number) => `${v.toFixed(1)} LUFS`,
   maxGainDb: (v: number) => `${v.toFixed(1)} dB`,
   peakLimitDbfs: (v: number) => `${v.toFixed(1)} dB`,
   denoiseStrength: (v: number) => `${Math.round(v * 100)}%`,
   vadGate: (v: number) => (v <= 0 ? "关闭" : v.toFixed(2)),
+  bassGainDb: fmtGainDb,
+  trebleGainDb: fmtGainDb,
 };
 
 export function AudioView() {
@@ -123,6 +127,17 @@ export function AudioView() {
             恢复默认
           </Button>
           <span className={cn("text-xs", toneClass[labStatusTone])}>{labStatus}</span>
+        </div>
+      </Card>
+
+      <Card>
+        <CardTitle>均衡器（高低频）</CardTitle>
+        <CardDescription>
+          两段搁架 EQ：低频拐点约 150Hz、高频拐点约 4000Hz，分别调整声音的"厚度"和"亮度"。0 dB 为不调整。
+        </CardDescription>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Slider label="低频增益" min={-12} max={12} step={0.5} value={prefs.bassGainDb} format={fmt.bassGainDb} onChange={(v) => onParam("bassGainDb", v)} />
+          <Slider label="高频增益" min={-12} max={12} step={0.5} value={prefs.trebleGainDb} format={fmt.trebleGainDb} onChange={(v) => onParam("trebleGainDb", v)} />
         </div>
       </Card>
     </div>

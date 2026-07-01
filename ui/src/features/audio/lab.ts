@@ -1,17 +1,16 @@
 // 音频调校（增益 / 降噪试听台）。命令式音频 + canvas，移植自旧 app.js 的 LAB 段。
 // 参数直接读写 useDictPrefs，改动即时作用于运行中的速记管线。
-import { CMD, cmd } from "@/lib/tauri";
+// 录音走后端麦克风采集（与语音输入/实时字幕同一条路径），不用浏览器 getUserMedia，
+// 避免弹出网页式的录音权限提示、且和其它录音入口共用同一个"选定输入设备"。
+import { CMD, EVT, cmd, cmdSilent, on } from "@/lib/tauri";
 import { float32ToBase64, base64ToFloat32, measure } from "@/lib/audio-dsp";
 import { useDictPrefs } from "@/store/useDictPrefs";
 import { useAudioStore, emptyMeters } from "@/store/useAudioStore";
 
-let ctx: AudioContext | null = null;
-let stream: MediaStream | null = null;
-let sourceNode: MediaStreamAudioSourceNode | null = null;
-let proc: ScriptProcessorNode | null = null;
-let mute: GainNode | null = null;
+let unlistenChunk: (() => void) | null = null;
+let unlistenEnded: (() => void) | null = null;
 let chunks: Float32Array[] = [];
-let sampleRate = 16000;
+let sampleRate = 48000;
 let recording = false;
 let raw: Float32Array | null = null;
 let processed: Float32Array | null = null;
@@ -105,6 +104,28 @@ function updateMeters() {
   useAudioStore.setState({ meters: m });
 }
 
+/** 等后端麦克风原始音频 channel 真正关闭（`pause_backend_mic` 触发），保证尾块已经通过事件送达前端。 */
+function waitForCaptureEnded(timeoutMs = 1000): Promise<void> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      unlistenEnded?.();
+      unlistenEnded = null;
+      resolve();
+    };
+    on(EVT.backendMicRawEnded, finish).then((fn) => {
+      if (done) {
+        fn();
+        return;
+      }
+      unlistenEnded = fn;
+    });
+    setTimeout(finish, timeoutMs);
+  });
+}
+
 async function startRec() {
   chunks = [];
   raw = null;
@@ -112,25 +133,19 @@ async function startRec() {
   stats = null;
   useAudioStore.setState({ canPlay: false, meters: { ...emptyMeters } });
   drawWaves();
-  stream = await navigator.mediaDevices.getUserMedia({
-    audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-  });
-  ctx = new AudioContext();
-  await ctx.resume().catch(() => {});
-  sampleRate = ctx.sampleRate;
-  sourceNode = ctx.createMediaStreamSource(stream);
-  proc = ctx.createScriptProcessor(4096, 1, 1);
-  mute = ctx.createGain();
-  mute.gain.value = 0;
-  proc.onaudioprocess = (e) => {
-    const d = e.inputBuffer.getChannelData(0);
-    chunks.push(new Float32Array(d));
-    const { peak } = measure(d);
+
+  const deviceName = useDictPrefs.getState().prefs.micDeviceId || undefined;
+  const started = await cmd<{ sampleRate?: number }>(CMD.startBackendMic, { deviceName });
+  sampleRate = started.sampleRate || 48000;
+
+  unlistenChunk = await on<string>(EVT.backendMicRawChunk, (base64) => {
+    const samples = base64ToFloat32(base64);
+    chunks.push(samples);
+    const { peak } = measure(samples);
     useAudioStore.setState({ level: Math.min(100, peak * 140) });
-  };
-  sourceNode.connect(proc);
-  proc.connect(mute);
-  mute.connect(ctx.destination);
+  });
+  await cmd(CMD.attachBackendMicRawCapture);
+
   recording = true;
   useAudioStore.setState({ recording: true });
   setRecInfo("录音中…对着麦克风正常说几句话");
@@ -139,15 +154,13 @@ async function startRec() {
 async function stopRec() {
   recording = false;
   useAudioStore.setState({ recording: false });
-  try {
-    proc?.disconnect();
-    sourceNode?.disconnect();
-    mute?.disconnect();
-  } catch {
-    /* noop */
-  }
-  stream?.getTracks().forEach((t) => t.stop());
-  if (ctx) await ctx.close().catch(() => {});
+
+  const ended = waitForCaptureEnded();
+  await cmdSilent(CMD.pauseBackendMic);
+  await ended;
+  unlistenChunk?.();
+  unlistenChunk = null;
+  await cmdSilent(CMD.releaseBackendMic);
   useAudioStore.setState({ level: 0 });
 
   let total = 0;
@@ -204,6 +217,8 @@ export async function toggleRecord() {
     setRecInfo(`录音失败：${e}`, "err");
     recording = false;
     useAudioStore.setState({ recording: false });
+    unlistenChunk?.();
+    unlistenChunk = null;
   }
 }
 

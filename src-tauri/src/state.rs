@@ -239,3 +239,11 @@ pub(crate) fn decode_f32_base64(input: &str) -> Result<Vec<f32>, String> {
         .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
         .collect())
 }
+
+pub(crate) fn encode_f32_base64(samples: &[f32]) -> String {
+    let mut bytes = Vec::with_capacity(samples.len() * 4);
+    for &s in samples {
+        bytes.extend_from_slice(&s.to_le_bytes());
+    }
+    STANDARD.encode(bytes)
+}

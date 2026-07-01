@@ -21,6 +21,7 @@ export const CMD = {
   asrStreamFinish: "asr_stream_finish",
   asrStreamPushF32Chunk: "asr_stream_push_f32_chunk",
   attachBackendMicToAsr: "attach_backend_mic_to_asr",
+  attachBackendMicRawCapture: "attach_backend_mic_raw_capture",
   startBackendMic: "start_backend_mic",
   pauseBackendMic: "pause_backend_mic",
   releaseBackendMic: "release_backend_mic",
@@ -55,6 +56,8 @@ export const EVT = {
   indicatorConfig: "dictation-indicator-config",
   indicatorKeydown: "dictation-indicator-keydown",
   indicatorKeyup: "dictation-indicator-keyup",
+  backendMicRawChunk: "backend-mic-raw-chunk",
+  backendMicRawEnded: "backend-mic-raw-ended",
 } as const;
 
 export function cmd<T = unknown>(

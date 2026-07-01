@@ -1,5 +1,6 @@
-//! 音频处理：神经网络降噪（nnnoiseless / RNNoise）+ EBU R128 响度归一化（ebur128）。
+//! 音频处理：神经网络降噪（nnnoiseless / RNNoise）+ 两段搁架 EQ（低/高频）+ EBU R128 响度归一化（ebur128）。
 //!
+//! 处理顺序固定为：降噪 → EQ → 响度归一化，EQ 造成的电平变化会被后续响度归一化一并拉回目标响度。
 //! 两条使用路径共用同一套参数 [`DspParams`]：
 //! - 离线：调校台录一段 → [`process_offline`] 返回处理后的 48k PCM 与前后 LUFS/峰值，供 A/B 试听。
 //! - 实时：语音输入把麦克风原始音频喂给 [`StreamDsp::process`]，得到可直接送 ASR 的 16k PCM16。
@@ -17,6 +18,10 @@ const RATE_16K: u32 = 16_000;
 /// 响度极低（接近数字静音）时不再据此调增益，避免把纯底噪顶上来。
 /// 这里不能太高：远麦克风的弱语音可能低于 -50 LUFS，实时链路仍应把它拉起来。
 const SILENCE_LUFS: f32 = -90.0;
+/// 简单两段搁架 EQ 的固定拐点频率：低于/高于该频率的部分整体提升或衰减。
+const EQ_BASS_FREQ: f32 = 150.0;
+const EQ_TREBLE_FREQ: f32 = 4000.0;
+const EQ_SHELF_Q: f32 = 0.707;
 
 fn d_true() -> bool {
     true
@@ -58,6 +63,12 @@ pub struct DspParams {
     /// 语音门：RNNoise 给出的 VAD 概率低于此值的帧直接静音（0=关闭，需开降噪才生效）。
     #[serde(default = "d_vad")]
     pub vad_gate: f32,
+    /// 低频搁架增益（dB），拐点约 150Hz，正值增厚、负值减薄。0=不调整。
+    #[serde(default)]
+    pub bass_gain_db: f32,
+    /// 高频搁架增益（dB），拐点约 4000Hz，正值提亮、负值柔化。0=不调整。
+    #[serde(default)]
+    pub treble_gain_db: f32,
 }
 
 impl Default for DspParams {
@@ -69,6 +80,113 @@ impl Default for DspParams {
             peak_limit_dbfs: d_peak(),
             max_gain_db: d_maxgain(),
             vad_gate: d_vad(),
+            bass_gain_db: 0.0,
+            treble_gain_db: 0.0,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct BiquadCoeffs {
+    b0: f32,
+    b1: f32,
+    b2: f32,
+    a1: f32,
+    a2: f32,
+}
+
+impl BiquadCoeffs {
+    fn identity() -> Self {
+        Self { b0: 1.0, b1: 0.0, b2: 0.0, a1: 0.0, a2: 0.0 }
+    }
+
+    /// RBJ Audio EQ Cookbook 低频搁架系数。
+    fn low_shelf(rate: f32, freq: f32, gain_db: f32, q: f32) -> Self {
+        if gain_db == 0.0 {
+            return Self::identity();
+        }
+        let a = 10f32.powf(gain_db / 40.0);
+        let w0 = 2.0 * std::f32::consts::PI * freq / rate;
+        let (sin_w0, cos_w0) = w0.sin_cos();
+        let alpha = sin_w0 / 2.0 * ((a + 1.0 / a) * (1.0 / q - 1.0) + 2.0).sqrt();
+        let two_sqrt_a_alpha = 2.0 * a.sqrt() * alpha;
+        let b0 = a * ((a + 1.0) - (a - 1.0) * cos_w0 + two_sqrt_a_alpha);
+        let b1 = 2.0 * a * ((a - 1.0) - (a + 1.0) * cos_w0);
+        let b2 = a * ((a + 1.0) - (a - 1.0) * cos_w0 - two_sqrt_a_alpha);
+        let a0 = (a + 1.0) + (a - 1.0) * cos_w0 + two_sqrt_a_alpha;
+        let a1 = -2.0 * ((a - 1.0) + (a + 1.0) * cos_w0);
+        let a2 = (a + 1.0) + (a - 1.0) * cos_w0 - two_sqrt_a_alpha;
+        Self { b0: b0 / a0, b1: b1 / a0, b2: b2 / a0, a1: a1 / a0, a2: a2 / a0 }
+    }
+
+    /// RBJ Audio EQ Cookbook 高频搁架系数。
+    fn high_shelf(rate: f32, freq: f32, gain_db: f32, q: f32) -> Self {
+        if gain_db == 0.0 {
+            return Self::identity();
+        }
+        let a = 10f32.powf(gain_db / 40.0);
+        let w0 = 2.0 * std::f32::consts::PI * freq / rate;
+        let (sin_w0, cos_w0) = w0.sin_cos();
+        let alpha = sin_w0 / 2.0 * ((a + 1.0 / a) * (1.0 / q - 1.0) + 2.0).sqrt();
+        let two_sqrt_a_alpha = 2.0 * a.sqrt() * alpha;
+        let b0 = a * ((a + 1.0) + (a - 1.0) * cos_w0 + two_sqrt_a_alpha);
+        let b1 = -2.0 * a * ((a - 1.0) + (a + 1.0) * cos_w0);
+        let b2 = a * ((a + 1.0) + (a - 1.0) * cos_w0 - two_sqrt_a_alpha);
+        let a0 = (a + 1.0) - (a - 1.0) * cos_w0 + two_sqrt_a_alpha;
+        let a1 = 2.0 * ((a - 1.0) - (a + 1.0) * cos_w0);
+        let a2 = (a + 1.0) - (a - 1.0) * cos_w0 - two_sqrt_a_alpha;
+        Self { b0: b0 / a0, b1: b1 / a0, b2: b2 / a0, a1: a1 / a0, a2: a2 / a0 }
+    }
+}
+
+struct Biquad {
+    c: BiquadCoeffs,
+    x1: f32,
+    x2: f32,
+    y1: f32,
+    y2: f32,
+}
+
+impl Biquad {
+    fn new(c: BiquadCoeffs) -> Self {
+        Self { c, x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0 }
+    }
+
+    #[inline]
+    fn process(&mut self, x: f32) -> f32 {
+        let c = self.c;
+        let y = c.b0 * x + c.b1 * self.x1 + c.b2 * self.x2 - c.a1 * self.y1 - c.a2 * self.y2;
+        self.x2 = self.x1;
+        self.x1 = x;
+        self.y2 = self.y1;
+        self.y1 = y;
+        y
+    }
+}
+
+/// 简单两段搁架 EQ（低频 + 高频），对应设置里"调整高低频"的诉求。
+/// 增益为 0 时对应恒等系数，`active` 直接跳过处理，零开销也不引入浮点误差。
+struct ShelfEq {
+    bass: Biquad,
+    treble: Biquad,
+    active: bool,
+}
+
+impl ShelfEq {
+    fn new(rate: f32, bass_gain_db: f32, treble_gain_db: f32) -> Self {
+        Self {
+            bass: Biquad::new(BiquadCoeffs::low_shelf(rate, EQ_BASS_FREQ, bass_gain_db, EQ_SHELF_Q)),
+            treble: Biquad::new(BiquadCoeffs::high_shelf(rate, EQ_TREBLE_FREQ, treble_gain_db, EQ_SHELF_Q)),
+            active: bass_gain_db != 0.0 || treble_gain_db != 0.0,
+        }
+    }
+
+    fn process_slice(&mut self, samples: &mut [f32]) {
+        if !self.active {
+            return;
+        }
+        for s in samples.iter_mut() {
+            *s = self.treble.process(self.bass.process(*s));
         }
     }
 }
@@ -195,11 +313,12 @@ pub fn process_offline(input: &[f32], in_rate: u32, params: &DspParams) -> Offli
     let in_lufs = integrated_lufs(&s48);
     let in_peak_db = lin_to_db(peak(&s48));
 
-    let wet = if params.denoise_enabled {
+    let mut wet = if params.denoise_enabled {
         denoise_all(&s48, params.denoise_strength, params.vad_gate)
     } else {
         s48
     };
+    ShelfEq::new(RATE_48K as f32, params.bass_gain_db, params.treble_gain_db).process_slice(&mut wet);
 
     // 据降噪后的响度算需要的增益，限制最大提升量。
     let wet_lufs = integrated_lufs(&wet);
@@ -237,6 +356,7 @@ pub fn process_offline(input: &[f32], in_rate: u32, params: &DspParams) -> Offli
 pub struct StreamDsp {
     params: DspParams,
     denoise: Box<DenoiseState<'static>>,
+    eq: ShelfEq,
     meter: EbuR128,
     gain: f32,
     in_rate: u32,
@@ -258,9 +378,11 @@ impl StreamDsp {
         let meter = EbuR128::new(1, RATE_48K, Mode::M).expect("ebur128 init");
         let peak_lin = db_to_lin(params.peak_limit_dbfs);
         let in_rate = if in_rate == 0 { RATE_48K } else { in_rate };
+        let eq = ShelfEq::new(RATE_48K as f32, params.bass_gain_db, params.treble_gain_db);
         Self {
             params,
             denoise: DenoiseState::new(),
+            eq,
             meter,
             gain: 1.0,
             in_rate,
@@ -331,6 +453,7 @@ impl StreamDsp {
             } else {
                 wet[..FRAME].copy_from_slice(&self.buf48[..FRAME]);
             }
+            self.eq.process_slice(&mut wet);
 
             // 用降噪后的动量响度驱动自适应增益。
             // ebur128 的 momentary loudness 需要一小段历史；如果暂时拿不到，使用当前

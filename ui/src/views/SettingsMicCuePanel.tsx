@@ -134,7 +134,7 @@ export function SettingsMicCuePanel() {
       </div>
       <input ref={fileRef} type="file" accept="audio/*" className="hidden" onChange={onCueFile} />
       <p className="mt-3 text-xs text-white/40">
-        增益 / 降噪参数请在「设置 → 音频调教」中调试，调好后会自动应用到语音输入。
+        增益 / 降噪参数请在「设置 → 录音调整」中调试，调好后会自动应用到语音输入。
       </p>
     </Card>
   );

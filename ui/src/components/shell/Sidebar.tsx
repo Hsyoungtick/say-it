@@ -1,15 +1,11 @@
 import { useUiStore } from "@/store/useUiStore";
-import { useProviderStore } from "@/store/useProviderStore";
 import { cn } from "@/lib/cn";
-import { StatusDot } from "@/components/ui/StatusDot";
 import { NAV_ITEMS } from "./navConfig";
 import appIcon from "../../../app-icon.png";
 
 export function Sidebar() {
   const view = useUiStore((s) => s.view);
   const setView = useUiStore((s) => s.setView);
-  const provider = useProviderStore((s) => s.profiles.find((item) => item.id === "funasr"));
-  const configured = !!provider?.status?.hasApiKey;
 
   return (
     <aside className="flex w-56 flex-none flex-col gap-2 border-r border-white/5 bg-white/[0.02] p-3 backdrop-blur-md">
@@ -44,11 +40,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs text-white/50">
-        <StatusDot tone={configured ? "ok" : "idle"} />
-        <span>{configured ? "Fun-ASR 已配置" : "等待配置密钥"}</span>
-      </div>
     </aside>
   );
 }

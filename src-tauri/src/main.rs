@@ -210,6 +210,7 @@ fn main() {
             stop_asr_stream,
             start_backend_mic,
             attach_backend_mic_to_asr,
+            attach_backend_mic_raw_capture,
             pause_backend_mic,
             release_backend_mic,
             start_backend_system_audio,
