@@ -22,6 +22,7 @@ export const CMD = {
   releaseBackendMic: "release_backend_mic",
   setIndicatorState: "set_indicator_state",
   setIndicatorText: "set_indicator_text",
+  setIndicatorLayout: "set_indicator_layout",
   injectText: "inject_text",
   runAsrSilenceTest: "run_asr_silence_test",
   processAudioOffline: "process_audio_offline",
@@ -38,6 +39,7 @@ export const EVT = {
   dictationShortcutError: "dictation-shortcut-error",
   indicatorState: "dictation-indicator-state",
   indicatorText: "dictation-indicator-text",
+  indicatorConfig: "dictation-indicator-config",
   indicatorKeydown: "dictation-indicator-keydown",
   indicatorKeyup: "dictation-indicator-keyup",
 } as const;

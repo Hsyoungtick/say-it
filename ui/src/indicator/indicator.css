@@ -21,6 +21,14 @@ body,
   animation: wrapIn 0.24s ease-out both;
 }
 
+#wrap.subtitle-mode {
+  height: 100vh;
+  width: 100vw;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 24px 24px;
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
@@ -54,6 +62,11 @@ body,
   border: 2px solid rgba(255, 255, 255, 0.25);
   border-top-color: #faad14;
   box-sizing: border-box;
+}
+
+.subtitle .dot {
+  background: #25c36f;
+  box-shadow: 0 0 0 5px rgba(37, 195, 111, 0.14);
 }
 
 .label {
@@ -103,6 +116,44 @@ body,
 
 #text.empty {
   display: none;
+}
+
+.subtitle-mode #text {
+  --text-line-height: var(--subtitle-line-height, 39px);
+  width: min(var(--subtitle-width, 880px), calc(100vw - 48px));
+  max-width: min(var(--subtitle-width, 880px), calc(100vw - 48px));
+  height: calc(var(--text-line-height) * var(--subtitle-lines, 2) + 28px);
+  padding: 14px 22px;
+  border-radius: var(--subtitle-radius, 18px);
+  background: var(--subtitle-bg, rgba(5, 7, 10, 0.72));
+  color: var(--subtitle-text, #fff);
+  font:
+    600 var(--subtitle-font-size, 28px) / 1.38 var(--subtitle-font),
+    "Microsoft YaHei",
+    "Segoe UI",
+    sans-serif;
+  text-align: center;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.66);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.34),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.subtitle-mode #text-flow {
+  height: calc(var(--text-line-height) * var(--subtitle-lines, 2));
+}
+
+.subtitle-mode #pill {
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 14px;
+  font-size: 11px;
+  opacity: 0.82;
+}
+
+.subtitle-mode .dot {
+  width: 7px;
+  height: 7px;
 }
 
 .fresh {

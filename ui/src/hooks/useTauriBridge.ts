@@ -15,11 +15,13 @@ import {
   handleForwardedKeydown,
   handleForwardedKeyup,
 } from "@/features/dictation/controller";
+import { handleSubtitleAsrEvent, shutdownSubtitles } from "@/features/subtitles/controller";
 
 export function useTauriBridge() {
   useTauriEvent(EVT.asrStreamEvent, (data) => {
     const payload = (data || {}) as { session_id?: string };
     if (!payload.session_id) return;
+    if (handleSubtitleAsrEvent(payload as never)) return;
     handleDictAsrEvent(payload as never);
   });
 
@@ -48,6 +50,7 @@ export function useTauriBridge() {
 
     const uninstallHotkeyFallback = installFocusHotkeyFallback();
     const onUnload = () => {
+      shutdownSubtitles();
       shutdownDictationMic();
     };
     window.addEventListener("beforeunload", onUnload);

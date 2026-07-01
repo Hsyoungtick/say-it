@@ -2,11 +2,24 @@ import { useEffect, useRef, useState } from "react";
 import { EVT, emitEvent } from "@/lib/tauri";
 import { useTauriEvent } from "@/hooks/useTauriEvent";
 
-type Phase = "hidden" | "recording" | "processing";
+type Phase = "hidden" | "recording" | "processing" | "subtitle";
+type IndicatorMode = "dictation" | "subtitle";
+
+interface SubtitleConfig {
+  displayMode?: "scroll" | "replace";
+  fontFamily?: string;
+  fontSize?: number;
+  lineCount?: number;
+  textColor?: string;
+  backgroundColor?: string;
+  rounded?: number;
+  width?: number;
+}
 
 const LABELS: Record<Exclude<Phase, "hidden">, string> = {
   recording: "正在聆听…",
   processing: "识别中…",
+  subtitle: "实时字幕",
 };
 
 const MAX_RENDER_CHARS = 20000;
@@ -15,6 +28,8 @@ const OVERLAP_SEARCH_MAX = 200;
 
 export function IndicatorApp() {
   const [phase, setPhase] = useState<Phase>("hidden");
+  const [mode, setMode] = useState<IndicatorMode>("dictation");
+  const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>({});
   const textElRef = useRef<HTMLDivElement>(null);
   const textFlowRef = useRef<HTMLDivElement>(null);
   const textContentRef = useRef<HTMLDivElement>(null);
@@ -56,6 +71,14 @@ export function IndicatorApp() {
     const content = textContentRef.current;
     const flow = textFlowRef.current;
     if (!content || !flow) return;
+    if (mode === "subtitle" && subtitleConfig.displayMode === "replace") {
+      const next = "translate3d(0, 0, 0)";
+      if (next !== lastTransform.current) {
+        lastTransform.current = next;
+        content.style.transform = next;
+      }
+      return;
+    }
     const overflow = content.scrollHeight - flow.clientHeight;
     const offset = overflow > 0 ? overflow : 0;
     const next = `translate3d(0, ${-offset}px, 0)`;
@@ -123,6 +146,11 @@ export function IndicatorApp() {
     payload.fade ? swapText(payload.text || "") : renderText(payload.text || "");
   });
 
+  useTauriEvent<{ mode?: IndicatorMode; subtitle?: SubtitleConfig }>(EVT.indicatorConfig, (payload) => {
+    setMode(payload.mode || "dictation");
+    if (payload.subtitle) setSubtitleConfig(payload.subtitle);
+  });
+
   useEffect(() => {
     return () => {
       if (renderFrame.current) cancelAnimationFrame(renderFrame.current);
@@ -159,9 +187,26 @@ export function IndicatorApp() {
 
   const pillPhase = phase === "hidden" ? "recording" : phase;
   const visible = phase !== "hidden";
+  const subtitleStyle =
+    mode === "subtitle"
+      ? ({
+          "--subtitle-font-size": `${subtitleConfig.fontSize || 28}px`,
+          "--subtitle-line-height": `${Math.round((subtitleConfig.fontSize || 28) * 1.38)}px`,
+          "--subtitle-lines": subtitleConfig.lineCount || 2,
+          "--subtitle-width": `${subtitleConfig.width || 880}px`,
+          "--subtitle-text": subtitleConfig.textColor || "#fff",
+          "--subtitle-bg": subtitleConfig.backgroundColor || "rgba(5, 7, 10, 0.72)",
+          "--subtitle-radius": `${subtitleConfig.rounded ?? 18}px`,
+          "--subtitle-font": subtitleConfig.fontFamily || "Microsoft YaHei",
+        } as React.CSSProperties)
+      : undefined;
 
   return (
-    <div id="wrap" style={{ display: visible ? "flex" : "none" }}>
+    <div
+      id="wrap"
+      className={mode === "subtitle" ? "subtitle-mode" : "dictation-mode"}
+      style={{ display: visible ? "flex" : "none", ...subtitleStyle }}
+    >
       <div id="text" ref={textElRef} className="empty">
         <div id="text-flow" ref={textFlowRef}>
           <div id="text-content" ref={textContentRef} />

@@ -29,6 +29,32 @@ extern "system" {
 }
 
 const DICTATION_INDICATOR_LABEL: &str = "dictation-indicator";
+const DEFAULT_INDICATOR_WIDTH: f64 = 520.0;
+const DEFAULT_INDICATOR_HEIGHT: f64 = 220.0;
+
+fn place_indicator_window(
+    window: &tauri::WebviewWindow,
+    width: f64,
+    height: f64,
+    anchor: &str,
+    offset_y: f64,
+) {
+    let _ = window.set_size(tauri::LogicalSize::new(width, height));
+    if let Ok(Some(monitor)) = window.current_monitor() {
+        let size = monitor.size();
+        let scale = window.scale_factor().unwrap_or(1.0);
+        let win_w = (width * scale) as i32;
+        let win_h = (height * scale) as i32;
+        let x = (size.width as i32 - win_w) / 2;
+        let margin = (offset_y * scale) as i32;
+        let y = match anchor {
+            "top" => margin,
+            "center" => ((size.height as i32 - win_h) / 2) + margin,
+            _ => size.height as i32 - win_h - margin,
+        };
+        let _ = window.set_position(tauri::PhysicalPosition::new(x.max(0), y.max(0)));
+    }
+}
 
 pub(crate) fn ensure_indicator_window(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
     if let Some(win) = app.get_webview_window(DICTATION_INDICATOR_LABEL) {
@@ -40,7 +66,7 @@ pub(crate) fn ensure_indicator_window(app: &tauri::AppHandle) -> Result<tauri::W
         WebviewUrl::App("indicator.html".into()),
     )
     .title("语音输入")
-    .inner_size(520.0, 220.0)
+    .inner_size(DEFAULT_INDICATOR_WIDTH, DEFAULT_INDICATOR_HEIGHT)
     .resizable(false)
     .decorations(false)
     .always_on_top(true)
@@ -54,15 +80,7 @@ pub(crate) fn ensure_indicator_window(app: &tauri::AppHandle) -> Result<tauri::W
     // 点击穿透：空闲时整块透明、不拦截鼠标。
     let _ = window.set_ignore_cursor_events(true);
 
-    // 放到屏幕底部居中附近。
-    if let Ok(Some(monitor)) = window.current_monitor() {
-        let size = monitor.size();
-        let scale = window.scale_factor().unwrap_or(1.0);
-        let win_w = (520.0 * scale) as i32;
-        let x = (size.width as i32 - win_w) / 2;
-        let y = size.height as i32 - (256.0 * scale) as i32;
-        let _ = window.set_position(tauri::PhysicalPosition::new(x.max(0), y.max(0)));
-    }
+    place_indicator_window(&window, DEFAULT_INDICATOR_WIDTH, DEFAULT_INDICATOR_HEIGHT, "bottom", 36.0);
     Ok(window)
 }
 
@@ -91,7 +109,7 @@ pub(crate) fn raise_indicator_window(window: &tauri::WebviewWindow) {
 /// 显示态会重新提升到 topmost，但不激活窗口，避免抢走目标程序焦点。
 #[tauri::command]
 pub(crate) fn set_indicator_state(app: tauri::AppHandle, state: String) -> Result<(), String> {
-    hotkey::set_dictation_active(state != "hidden");
+    hotkey::set_dictation_active(state == "recording" || state == "processing");
     let window = ensure_indicator_window(&app)?;
     if state != "hidden" {
         raise_indicator_window(&window);
@@ -109,6 +127,24 @@ pub(crate) fn set_indicator_text(app: tauri::AppHandle, text: String, fade: Opti
             json!({ "text": text, "fade": fade.unwrap_or(false) }),
         );
     }
+    Ok(())
+}
+
+/// 调整字幕/指示器窗口尺寸与屏幕位置。anchor: "top" | "center" | "bottom"。
+#[tauri::command]
+pub(crate) fn set_indicator_layout(
+    app: tauri::AppHandle,
+    width: Option<f64>,
+    height: Option<f64>,
+    anchor: Option<String>,
+    offset_y: Option<f64>,
+) -> Result<(), String> {
+    let window = ensure_indicator_window(&app)?;
+    let width = width.unwrap_or(DEFAULT_INDICATOR_WIDTH).clamp(320.0, 1400.0);
+    let height = height.unwrap_or(DEFAULT_INDICATOR_HEIGHT).clamp(120.0, 420.0);
+    let anchor = anchor.unwrap_or_else(|| "bottom".to_string());
+    let offset_y = offset_y.unwrap_or(36.0).clamp(-240.0, 240.0);
+    place_indicator_window(&window, width, height, &anchor, offset_y);
     Ok(())
 }
 

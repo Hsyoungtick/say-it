@@ -197,6 +197,7 @@ fn main() {
             inject_text,
             set_indicator_state,
             set_indicator_text,
+            set_indicator_layout,
             set_debug_log,
             run_asr_silence_test
         ])

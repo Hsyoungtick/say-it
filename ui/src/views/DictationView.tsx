@@ -7,6 +7,7 @@ import { Tabs, type TabItem } from "@/components/ui/Tabs";
 import { LocalRulesPanel } from "@/views/LocalRulesPanel";
 import { DictationShortcutsPanel } from "@/views/DictationShortcutsPanel";
 import { FunAsrHotwordsPanel } from "@/views/FunAsrHotwordsPanel";
+import { RealtimeSubtitlesPanel } from "@/views/RealtimeSubtitlesPanel";
 import { cn } from "@/lib/cn";
 import { useDictationStore } from "@/store/useDictationStore";
 import { useDictPrefs } from "@/store/useDictPrefs";
@@ -75,6 +76,8 @@ export function DictationView() {
           </div>
         </div>
       )}
+
+      <RealtimeSubtitlesPanel />
     </div>
   );
 }
