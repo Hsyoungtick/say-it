@@ -16,9 +16,10 @@ pub(crate) use crate::providers::{
 };
 pub(crate) use crate::providers::alibabacloud::{
     build_finish_task_message, build_run_task_message, create_vocabulary as funasr_create_vocabulary,
-    delete_vocabulary as funasr_delete_vocabulary, parse_server_message as parse_funasr_message,
+    delete_vocabulary as funasr_delete_vocabulary, list_vocabulary as funasr_list_vocabulary,
+    parse_server_message as parse_funasr_message, query_vocabulary as funasr_query_vocabulary,
     update_vocabulary as funasr_update_vocabulary, ws_request as funasr_ws_request, FunAsrEvent,
-    FunAsrParams, HotwordEntry,
+    FunAsrParams, HotwordEntry, VOCABULARY_PREFIX as FUNASR_VOCABULARY_PREFIX,
 };
 pub(crate) use base64::{engine::general_purpose::STANDARD, Engine as _};
 pub(crate) use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};

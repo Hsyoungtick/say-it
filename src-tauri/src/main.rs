@@ -200,6 +200,7 @@ fn main() {
             set_default_provider,
             update_provider_config,
             funasr_save_hotwords,
+            funasr_sync_hotwords,
             funasr_clear_hotwords,
             start_asr_stream,
             asr_stream_push_chunk,

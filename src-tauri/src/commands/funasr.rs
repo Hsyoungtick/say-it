@@ -92,6 +92,35 @@ pub(crate) async fn funasr_save_hotwords(
     )
 }
 
+/// 从阿里云百炼账号下拉取本应用创建的热词列表（按修改时间取最新一份），覆盖本地保存的热词配置。
+#[tauri::command]
+pub(crate) async fn funasr_sync_hotwords(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, RuntimeState>,
+) -> Result<ProviderSettingsResponse, String> {
+    let (api_key, _) = funasr_credentials(&state)?;
+    if api_key.is_empty() {
+        return Err("请先保存阿里云百炼 API Key".to_string());
+    }
+
+    let vocabulary_ids = funasr_list_vocabulary(&api_key, FUNASR_VOCABULARY_PREFIX).await?;
+    let vocabulary_id = vocabulary_ids
+        .into_iter()
+        .next()
+        .ok_or_else(|| "云端未找到该账号下的热词列表".to_string())?;
+    let hotwords = funasr_query_vocabulary(&api_key, &vocabulary_id).await?;
+
+    let hotwords_value = serde_json::to_value(&hotwords).map_err(|e| e.to_string())?;
+    apply_funasr_patch(
+        &app,
+        &state,
+        json!({
+            "vocabularyId": vocabulary_id,
+            "hotwords": hotwords_value,
+        }),
+    )
+}
+
 /// 删除阿里云端的热词列表并清空本地保存的热词配置。
 #[tauri::command]
 pub(crate) async fn funasr_clear_hotwords(

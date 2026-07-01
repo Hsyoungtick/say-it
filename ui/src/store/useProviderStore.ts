@@ -39,6 +39,7 @@ interface ProviderState {
   setDefault: (capability: ProviderCapability, providerId: string) => Promise<void>;
   updateConfig: (providerId: string, config: Record<string, unknown>) => Promise<void>;
   saveFunasrHotwords: (hotwords: { text: string; weight: number }[]) => Promise<void>;
+  syncFunasrHotwords: () => Promise<void>;
   clearFunasrHotwords: () => Promise<void>;
   setOverride: (capability: ProviderCapability, providerId: string) => void;
   effective: (capability: ProviderCapability) => string;
@@ -92,6 +93,11 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
   saveFunasrHotwords: async (hotwords) => {
     const response = await cmd<ProviderResponse>(CMD.funasrSaveHotwords, { hotwords });
     set({ ...normalize(response), statusText: "热词已保存到阿里云百炼。", statusTone: "ok" });
+  },
+
+  syncFunasrHotwords: async () => {
+    const response = await cmd<ProviderResponse>(CMD.funasrSyncHotwords);
+    set({ ...normalize(response), statusText: "热词已从阿里云百炼同步。", statusTone: "ok" });
   },
 
   clearFunasrHotwords: async () => {

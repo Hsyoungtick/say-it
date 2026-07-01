@@ -6,7 +6,7 @@ use super::protocol::FUN_ASR_MODEL;
 /// 定制热词列表所用的固定接口地址（华北2/北京）。
 const CUSTOMIZATION_URL: &str = "https://dashscope.aliyuncs.com/api/v1/services/audio/asr/customization";
 /// 热词列表前缀，仅允许数字和小写字母、长度不超过 10 个字符。
-const VOCABULARY_PREFIX: &str = "deskhw";
+pub const VOCABULARY_PREFIX: &str = "deskhw";
 
 /// 单条热词（文本 + 权重），用于创建/更新热词列表。
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -101,4 +101,56 @@ pub async fn delete_vocabulary(api_key: &str, vocabulary_id: &str) -> Result<(),
     });
     post_customization(api_key, body).await?;
     Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct VocabularySummary {
+    vocabulary_id: String,
+    status: String,
+    #[serde(default)]
+    gmt_modified: String,
+}
+
+/// 按前缀批量查询该账号下已创建的热词列表，返回可用（status=OK）的词表 ID，
+/// 按修改时间倒序排列（最新的在前）。
+pub async fn list_vocabulary(api_key: &str, prefix: &str) -> Result<Vec<String>, String> {
+    let body = json!({
+        "model": "speech-biasing",
+        "input": {
+            "action": "list_vocabulary",
+            "prefix": prefix,
+            "page_index": 0,
+            "page_size": 10,
+        }
+    });
+    let value = post_customization(api_key, body).await?;
+    let list = value
+        .pointer("/output/vocabulary_list")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let mut summaries: Vec<VocabularySummary> = list
+        .into_iter()
+        .filter_map(|item| serde_json::from_value(item).ok())
+        .filter(|item: &VocabularySummary| item.status == "OK")
+        .collect();
+    summaries.sort_by(|a, b| b.gmt_modified.cmp(&a.gmt_modified));
+    Ok(summaries.into_iter().map(|item| item.vocabulary_id).collect())
+}
+
+/// 查询指定热词列表的完整内容。
+pub async fn query_vocabulary(api_key: &str, vocabulary_id: &str) -> Result<Vec<HotwordEntry>, String> {
+    let body = json!({
+        "model": "speech-biasing",
+        "input": {
+            "action": "query_vocabulary",
+            "vocabulary_id": vocabulary_id,
+        }
+    });
+    let value = post_customization(api_key, body).await?;
+    let vocabulary: Vec<HotwordEntry> = value
+        .pointer("/output/vocabulary")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .ok_or_else(|| "查询热词列表失败：响应缺少 vocabulary".to_string())?;
+    Ok(vocabulary)
 }

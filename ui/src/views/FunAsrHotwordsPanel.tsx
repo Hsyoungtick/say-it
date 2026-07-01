@@ -24,6 +24,7 @@ export function FunAsrHotwordsPanel() {
   const providers = useProviderStore((s) => s.profiles);
   const loadProviders = useProviderStore((s) => s.load);
   const saveFunasrHotwords = useProviderStore((s) => s.saveFunasrHotwords);
+  const syncFunasrHotwords = useProviderStore((s) => s.syncFunasrHotwords);
   const clearFunasrHotwords = useProviderStore((s) => s.clearFunasrHotwords);
   const funasr = providers.find((p) => p.id === "funasr");
 
@@ -59,6 +60,15 @@ export function FunAsrHotwordsPanel() {
     }
   };
 
+  const handleSync = async () => {
+    try {
+      await syncFunasrHotwords();
+      setMessage("热词已从阿里云百炼同步。");
+    } catch (error) {
+      setMessage(`同步失败：${String(error)}`);
+    }
+  };
+
   const handleClear = async () => {
     try {
       await clearFunasrHotwords();
@@ -82,6 +92,9 @@ export function FunAsrHotwordsPanel() {
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button size="sm" variant="primary" onClick={handleSave} disabled={!hotwordsText.trim()}>
           保存热词到阿里云
+        </Button>
+        <Button size="sm" onClick={handleSync}>
+          从云端同步
         </Button>
         <Button size="sm" onClick={handleClear} disabled={!vocabularyId && !hotwordsText.trim()}>
           清除热词

@@ -13,6 +13,7 @@ export const CMD = {
   setDefaultProvider: "set_default_provider",
   updateProviderConfig: "update_provider_config",
   funasrSaveHotwords: "funasr_save_hotwords",
+  funasrSyncHotwords: "funasr_sync_hotwords",
   funasrClearHotwords: "funasr_clear_hotwords",
   startAsrStream: "start_asr_stream",
   stopAsrStream: "stop_asr_stream",
