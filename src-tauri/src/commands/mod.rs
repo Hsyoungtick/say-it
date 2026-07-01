@@ -7,6 +7,7 @@ pub(crate) mod session;
 
 pub(crate) use asr::*;
 pub(crate) use audio::*;
+pub(crate) use common::*;
 pub(crate) use dictation::*;
 pub(crate) use funasr::*;
 pub(crate) use session::*;

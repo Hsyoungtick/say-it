@@ -1,6 +1,37 @@
 use crate::prelude::*;
 use crate::state::*;
 
+const API_KEY_PAGE_URL: &str =
+    "https://bailian.console.aliyun.com/cn-beijing?tab=globalset#/efm/api_key";
+
+#[tauri::command]
+pub(crate) fn open_api_key_page() -> Result<(), String> {
+    open_external_url(API_KEY_PAGE_URL)
+}
+
+fn open_external_url(url: &str) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let status = std::process::Command::new("cmd")
+        .args(["/C", "start", "", url])
+        .status();
+
+    #[cfg(target_os = "macos")]
+    let status = std::process::Command::new("open").arg(url).status();
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let status = std::process::Command::new("xdg-open").arg(url).status();
+
+    status
+        .map_err(|err| format!("打开浏览器失败：{err}"))
+        .and_then(|status| {
+            if status.success() {
+                Ok(())
+            } else {
+                Err(format!("打开浏览器失败，退出码：{status}"))
+            }
+        })
+}
+
 pub(crate) fn read_provider_settings(
     state: &tauri::State<'_, RuntimeState>,
 ) -> Result<ProviderSettings, String> {

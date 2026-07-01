@@ -189,6 +189,7 @@ fn main() {
             pause_backend_mic,
             release_backend_mic,
             process_audio_offline,
+            open_api_key_page,
             get_dictation_settings,
             set_dictation_settings,
             get_startup_settings,

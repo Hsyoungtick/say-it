@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, CheckField } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Slider } from "@/components/ui/Slider";
+import { CMD, cmd } from "@/lib/tauri";
 import { useProviderStore } from "@/store/useProviderStore";
 
 export function SettingsProviderPanel() {
@@ -51,6 +52,14 @@ export function SettingsProviderPanel() {
     }
   };
 
+  const openApiKeyPage = async () => {
+    try {
+      await cmd(CMD.openApiKeyPage);
+    } catch (error) {
+      setMessage(`打开链接失败：${String(error)}`);
+    }
+  };
+
   const toggleLanguageHint = (lang: string) => {
     setLanguageHints((prev) =>
       prev.includes(lang) ? prev.filter((value) => value !== lang) : [...prev, lang],
@@ -77,7 +86,13 @@ export function SettingsProviderPanel() {
     <Card>
       <CardTitle>Fun-ASR</CardTitle>
       <CardDescription>
-        说吧！v1 只启用 Fun-ASR。API Key 保存在本机 Tauri 数据目录中，不会在前端回显。
+        <button
+          type="button"
+          onClick={openApiKeyPage}
+          className="text-[var(--color-accent-light)] underline-offset-4 hover:underline"
+        >
+          点击此处获取 API Key
+        </button>
       </CardDescription>
 
       <div className="mt-4 flex items-center gap-2">

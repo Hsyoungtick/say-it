@@ -25,6 +25,7 @@ export const CMD = {
   injectText: "inject_text",
   runAsrSilenceTest: "run_asr_silence_test",
   processAudioOffline: "process_audio_offline",
+  openApiKeyPage: "open_api_key_page",
   getStartupSettings: "get_startup_settings",
   setStartupSettings: "set_startup_settings",
   setDebugLog: "set_debug_log",
