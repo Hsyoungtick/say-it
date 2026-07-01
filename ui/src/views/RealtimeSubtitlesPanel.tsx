@@ -7,14 +7,13 @@ import { Slider } from "@/components/ui/Slider";
 import { cn } from "@/lib/cn";
 import {
   syncSubtitleIndicator,
+  showSubtitlePreview,
+  hideSubtitlePreview,
   toggleSubtitles,
   startSubtitleShortcutCapture,
   clearSubtitleShortcut,
-  rgba,
 } from "@/features/subtitles/controller";
 import { useSubtitleStore, type SubtitleAnchor, type SubtitleMode, type SubtitleSource } from "@/store/useSubtitleStore";
-
-const PREVIEW_SAMPLE_TEXT = "这是实时字幕预览效果，可在此调整样式";
 
 const toneClass: Record<string, string> = {
   "": "text-white/50",
@@ -54,13 +53,24 @@ function ColorField({
 }
 
 export function RealtimeSubtitlesPanel() {
-  const { prefs, running, statusText, statusTone, latestText, capturing, shortcutLabel, patch } =
-    useSubtitleStore();
+  const { prefs, running, statusText, statusTone, capturing, shortcutLabel, patch } = useSubtitleStore();
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  // 真正运行、或预览开着时，持续把样式变化同步到悬浮窗。
   useEffect(() => {
-    if (running) syncSubtitleIndicator(prefs);
-  }, [prefs, running]);
+    if (running || previewOpen) syncSubtitleIndicator(prefs);
+  }, [prefs, running, previewOpen]);
+
+  // 预览开关的显示/隐藏生命周期：打开时在桌面实际位置展示示例文本；
+  // 关闭、真正开始字幕、或离开本页面时都要收起悬浮窗（不影响正在运行的真实字幕）。
+  useEffect(() => {
+    if (running || !previewOpen) return undefined;
+    // 只在开关/运行状态变化时触发一次；样式跟随交给上面那个 effect。
+    showSubtitlePreview(prefs);
+    return () => {
+      hideSubtitlePreview();
+    };
+  }, [previewOpen, running]);
 
   return (
     <Card>
@@ -138,9 +148,16 @@ export function RealtimeSubtitlesPanel() {
         </Field>
       </div>
 
-      <CheckField checked={previewOpen} onChange={setPreviewOpen} className="mt-5">
-        调整预览
-      </CheckField>
+      <div className="mt-5">
+        <CheckField checked={previewOpen} onChange={setPreviewOpen} disabled={running}>
+          调整预览
+        </CheckField>
+        <p className="mt-1.5 text-xs text-white/40">
+          {running
+            ? "字幕运行中，桌面悬浮窗已实时显示真实内容。"
+            : "打开后会在桌面实际位置显示示例字幕，方便调整样式，不会启动麦克风识别。"}
+        </p>
+      </div>
 
       <div className="mt-5 grid gap-x-8 gap-y-4 md:grid-cols-2">
         <Slider label="字号" min={18} max={64} step={1} value={prefs.fontSize} onChange={(fontSize) => patch({ fontSize })} format={(v) => `${v}px`} />
@@ -157,29 +174,6 @@ export function RealtimeSubtitlesPanel() {
         <ColorField label="字体颜色" value={prefs.textColor} onChange={(textColor) => patch({ textColor })} />
         <ColorField label="背景颜色" value={prefs.backgroundColor} onChange={(backgroundColor) => patch({ backgroundColor })} />
       </div>
-
-      {previewOpen && (
-        <div className="mt-5 flex justify-center rounded-xl border border-white/10 bg-black/40 p-6">
-          <div
-            className="text-center"
-            style={{
-              maxWidth: "100%",
-              width: prefs.width,
-              borderRadius: prefs.rounded,
-              background: rgba(prefs.backgroundColor, prefs.backgroundOpacity),
-              color: prefs.textColor,
-              fontFamily: prefs.fontFamily,
-              fontSize: prefs.fontSize,
-              fontWeight: 600,
-              padding: "14px 22px",
-              textShadow: "0 2px 8px rgba(0, 0, 0, 0.66)",
-              boxShadow: "0 18px 48px rgba(0, 0, 0, 0.34)",
-            }}
-          >
-            {latestText || PREVIEW_SAMPLE_TEXT}
-          </div>
-        </div>
-      )}
     </Card>
   );
 }

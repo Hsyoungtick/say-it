@@ -103,6 +103,25 @@ export async function syncSubtitleIndicator(prefs: SubtitlePrefs = useSubtitleSt
   });
 }
 
+export const SUBTITLE_PREVIEW_TEXT = "这是实时字幕预览效果，可在此调整样式，同步显示在桌面实际位置";
+
+/** 在桌面悬浮窗里按当前样式展示示例文本，不启动麦克风/识别。真正开着字幕时不干预。 */
+export async function showSubtitlePreview(prefs: SubtitlePrefs) {
+  if (useSubtitleStore.getState().running) return;
+  await syncSubtitleIndicator(prefs);
+  cmdSilent(CMD.setIndicatorState, { state: "subtitle" });
+  cmdSilent(CMD.setIndicatorText, { text: SUBTITLE_PREVIEW_TEXT });
+}
+
+/** 关闭预览悬浮窗，恢复到指示器的默认（隐藏）状态。真正开着字幕时不干预。 */
+export async function hideSubtitlePreview() {
+  if (useSubtitleStore.getState().running) return;
+  await emitEvent(EVT.indicatorConfig, { mode: "dictation" });
+  await cmdSilent(CMD.setIndicatorLayout, { width: 520, height: 220, anchor: "bottom", offsetY: 36 });
+  await cmdSilent(CMD.setIndicatorState, { state: "hidden" });
+  await cmdSilent(CMD.setIndicatorText, { text: "" });
+}
+
 function renderSubtitle(nextSegment = currentSegment) {
   const prefs = useSubtitleStore.getState().prefs;
   const stable = committedLines.join("\n");
