@@ -71,14 +71,8 @@ export function IndicatorApp() {
     const content = textContentRef.current;
     const flow = textFlowRef.current;
     if (!content || !flow) return;
-    if (mode === "subtitle" && subtitleConfig.displayMode === "replace") {
-      const next = "translate3d(0, 0, 0)";
-      if (next !== lastTransform.current) {
-        lastTransform.current = next;
-        content.style.transform = next;
-      }
-      return;
-    }
+    // 单句替换模式框高只留 1 行，但一句话说久了内容仍可能换行溢出；
+    // 这里统一按溢出量向上滚动，让最新说的内容始终留在可见行内，不会被锁在框顶而"卡住不更新"。
     const overflow = content.scrollHeight - flow.clientHeight;
     const offset = overflow > 0 ? overflow : 0;
     const next = `translate3d(0, ${-offset}px, 0)`;
