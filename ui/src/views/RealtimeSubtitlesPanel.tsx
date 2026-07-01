@@ -1,12 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
-import { Field } from "@/components/ui/Field";
+import { CheckField, Field } from "@/components/ui/Field";
 import { Input, Select } from "@/components/ui/Input";
 import { Slider } from "@/components/ui/Slider";
 import { cn } from "@/lib/cn";
-import { syncSubtitleIndicator, toggleSubtitles } from "@/features/subtitles/controller";
+import {
+  syncSubtitleIndicator,
+  toggleSubtitles,
+  startSubtitleShortcutCapture,
+  clearSubtitleShortcut,
+  rgba,
+} from "@/features/subtitles/controller";
 import { useSubtitleStore, type SubtitleAnchor, type SubtitleMode, type SubtitleSource } from "@/store/useSubtitleStore";
+
+const PREVIEW_SAMPLE_TEXT = "这是实时字幕预览效果，可在此调整样式";
 
 const toneClass: Record<string, string> = {
   "": "text-white/50",
@@ -46,7 +54,9 @@ function ColorField({
 }
 
 export function RealtimeSubtitlesPanel() {
-  const { prefs, running, statusText, statusTone, latestText, patch } = useSubtitleStore();
+  const { prefs, running, statusText, statusTone, latestText, capturing, shortcutLabel, patch } =
+    useSubtitleStore();
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (running) syncSubtitleIndicator(prefs);
@@ -67,6 +77,21 @@ export function RealtimeSubtitlesPanel() {
       </div>
 
       <p className={cn("mt-3 text-sm", toneClass[statusTone])}>{statusText}</p>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="全局快捷键">
+          <div className="flex gap-2">
+            <Input
+              readOnly
+              value={capturing ? "请按下按键…" : shortcutLabel}
+              placeholder="未设置"
+              className={cn(capturing && "border-white/40")}
+            />
+            <Button onClick={startSubtitleShortcutCapture}>{capturing ? "取消" : "设置快捷键"}</Button>
+            {!capturing && shortcutLabel && <Button onClick={clearSubtitleShortcut}>清除</Button>}
+          </div>
+        </Field>
+      </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <Field label="声音来源">
@@ -113,9 +138,15 @@ export function RealtimeSubtitlesPanel() {
         </Field>
       </div>
 
+      <CheckField checked={previewOpen} onChange={setPreviewOpen} className="mt-5">
+        调整预览
+      </CheckField>
+
       <div className="mt-5 grid gap-x-8 gap-y-4 md:grid-cols-2">
         <Slider label="字号" min={18} max={64} step={1} value={prefs.fontSize} onChange={(fontSize) => patch({ fontSize })} format={(v) => `${v}px`} />
-        <Slider label="显示行数" min={1} max={4} step={1} value={prefs.lineCount} onChange={(lineCount) => patch({ lineCount })} format={(v) => `${v} 行`} />
+        {prefs.mode === "scroll" && (
+          <Slider label="显示行数" min={1} max={4} step={1} value={prefs.lineCount} onChange={(lineCount) => patch({ lineCount })} format={(v) => `${v} 行`} />
+        )}
         <Slider label="字幕宽度" min={420} max={1280} step={20} value={prefs.width} onChange={(width) => patch({ width })} format={(v) => `${v}px`} />
         <Slider label="位置偏移" min={-180} max={220} step={4} value={prefs.offsetY} onChange={(offsetY) => patch({ offsetY })} format={(v) => `${v}px`} />
         <Slider label="背景不透明" min={0} max={100} step={1} value={prefs.backgroundOpacity} onChange={(backgroundOpacity) => patch({ backgroundOpacity })} format={(v) => `${v}%`} />
@@ -127,12 +158,28 @@ export function RealtimeSubtitlesPanel() {
         <ColorField label="背景颜色" value={prefs.backgroundColor} onChange={(backgroundColor) => patch({ backgroundColor })} />
       </div>
 
-      <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-        <p className="text-sm font-medium text-white">当前字幕内容</p>
-        <p className="mt-2 min-h-10 whitespace-pre-wrap text-sm leading-relaxed text-white/65">
-          {latestText || "开始后会显示实时识别结果"}
-        </p>
-      </div>
+      {previewOpen && (
+        <div className="mt-5 flex justify-center rounded-xl border border-white/10 bg-black/40 p-6">
+          <div
+            className="text-center"
+            style={{
+              maxWidth: "100%",
+              width: prefs.width,
+              borderRadius: prefs.rounded,
+              background: rgba(prefs.backgroundColor, prefs.backgroundOpacity),
+              color: prefs.textColor,
+              fontFamily: prefs.fontFamily,
+              fontSize: prefs.fontSize,
+              fontWeight: 600,
+              padding: "14px 22px",
+              textShadow: "0 2px 8px rgba(0, 0, 0, 0.66)",
+              boxShadow: "0 18px 48px rgba(0, 0, 0, 0.34)",
+            }}
+          >
+            {latestText || PREVIEW_SAMPLE_TEXT}
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

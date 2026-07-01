@@ -41,11 +41,17 @@ static TARGET_MODS: AtomicU8 = AtomicU8::new(0);
 static TRIGGERED: AtomicBool = AtomicBool::new(false);
 static HOOK_INSTALLED: AtomicBool = AtomicBool::new(false);
 
+// 实时字幕专用的第二路目标键，与语音输入完全独立。0 表示未设置。
+static SUB_TARGET_VK: AtomicU16 = AtomicU16::new(0);
+static SUB_TARGET_MODS: AtomicU8 = AtomicU8::new(0);
+static SUB_TRIGGERED: AtomicBool = AtomicBool::new(false);
+
 static APP: OnceLock<AppHandle> = OnceLock::new();
 // 钩子回调 → 发送线程的信号通道。钩子回调里只做 send()（极快、非阻塞），
 // 真正的 app.emit 放到独立线程，避免在低级钩子回调里耗时被系统超时卸载。
 static TOGGLE_TX: OnceLock<Mutex<Sender<()>>> = OnceLock::new();
 static CANCEL_TX: OnceLock<Mutex<Sender<()>>> = OnceLock::new();
+static SUB_TOGGLE_TX: OnceLock<Mutex<Sender<()>>> = OnceLock::new();
 static DICTATION_ACTIVE: AtomicBool = AtomicBool::new(false);
 static ESCAPE_TRIGGERED: AtomicBool = AtomicBool::new(false);
 
@@ -72,6 +78,14 @@ pub fn init(app: AppHandle) {
     std::thread::spawn(move || {
         while cancel_rx.recv().is_ok() {
             emit_cancel();
+        }
+    });
+
+    let (sub_tx, sub_rx) = channel::<()>();
+    let _ = SUB_TOGGLE_TX.set(Mutex::new(sub_tx));
+    std::thread::spawn(move || {
+        while sub_rx.recv().is_ok() {
+            emit_subtitle_toggle();
         }
     });
 
@@ -125,6 +139,14 @@ fn signal_cancel() {
     }
 }
 
+fn signal_subtitle_toggle() {
+    if let Some(lock) = SUB_TOGGLE_TX.get() {
+        if let Ok(tx) = lock.lock() {
+            let _ = tx.send(());
+        }
+    }
+}
+
 pub fn set_dictation_active(active: bool) {
     DICTATION_ACTIVE.store(active, Ordering::SeqCst);
     if !active {
@@ -142,6 +164,23 @@ pub fn set_hotkey(vk: u16, mods: u8) {
     if is_lock_key(vk) {
         force_lock_off(vk);
     }
+}
+
+/// 设置实时字幕专用热键（与语音输入完全独立）。
+pub fn set_subtitle_hotkey(vk: u16, mods: u8) {
+    SUB_TARGET_VK.store(vk, Ordering::SeqCst);
+    SUB_TARGET_MODS.store(mods, Ordering::SeqCst);
+    SUB_TRIGGERED.store(false, Ordering::SeqCst);
+    if is_lock_key(vk) {
+        force_lock_off(vk);
+    }
+}
+
+/// 清除实时字幕热键（恢复未设置状态）。
+pub fn clear_subtitle_hotkey() {
+    SUB_TARGET_VK.store(0, Ordering::SeqCst);
+    SUB_TARGET_MODS.store(0, Ordering::SeqCst);
+    SUB_TRIGGERED.store(false, Ordering::SeqCst);
 }
 
 fn is_lock_key(vk: u16) -> bool {
@@ -206,6 +245,12 @@ fn emit_cancel() {
     }
 }
 
+fn emit_subtitle_toggle() {
+    if let Some(app) = APP.get() {
+        let _ = app.emit("subtitle-toggle", json!({}));
+    }
+}
+
 unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code == HC_ACTION as i32 {
         let kb = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
@@ -255,6 +300,28 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: WPARAM, lparam: 
                 TRIGGERED.store(false, Ordering::SeqCst);
                 if lock {
                     // 成对吞掉 keyup，避免下游收到孤立的 keyup。
+                    return LRESULT(1);
+                }
+            }
+        }
+
+        let sub_target = SUB_TARGET_VK.load(Ordering::SeqCst);
+        if sub_target != 0 && vk == sub_target {
+            let sub_mods = SUB_TARGET_MODS.load(Ordering::SeqCst);
+            let lock = is_lock_key(sub_target);
+            if is_down {
+                if modifiers_match(sub_mods) {
+                    if !SUB_TRIGGERED.swap(true, Ordering::SeqCst) {
+                        crate::dlog!("[hotkey] 触发字幕 toggle (vk={vk:#04x})");
+                        signal_subtitle_toggle();
+                    }
+                }
+                if lock {
+                    return LRESULT(1);
+                }
+            } else if is_up {
+                SUB_TRIGGERED.store(false, Ordering::SeqCst);
+                if lock {
                     return LRESULT(1);
                 }
             }

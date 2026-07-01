@@ -8,6 +8,8 @@ pub(crate) struct PersistedData {
     #[serde(default)]
     pub(crate) dictation: DictationSettings,
     #[serde(default)]
+    pub(crate) subtitle_shortcut: SubtitleShortcutSettings,
+    #[serde(default)]
     pub(crate) startup: StartupSettings,
 }
 
@@ -31,6 +33,11 @@ pub(crate) fn save_persisted_state(
         .lock()
         .map_err(|_| "Dictation lock failed".to_string())?
         .clone();
+    let subtitle_shortcut = state
+        .subtitle_shortcut
+        .lock()
+        .map_err(|_| "Subtitle shortcut lock failed".to_string())?
+        .clone();
     let startup = state
         .startup
         .lock()
@@ -39,6 +46,7 @@ pub(crate) fn save_persisted_state(
     let data = PersistedData {
         providers: normalize_settings(providers),
         dictation,
+        subtitle_shortcut,
         startup,
     };
     let bytes = serde_json::to_vec_pretty(&data).map_err(|e| e.to_string())?;

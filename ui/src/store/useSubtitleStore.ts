@@ -27,18 +27,24 @@ interface SubtitleState {
   statusText: string;
   statusTone: Tone;
   latestText: string;
+  capturing: boolean;
+  shortcutLabel: string;
   patch: (partial: Partial<SubtitlePrefs>) => void;
-  setRuntime: (partial: Partial<Pick<SubtitleState, "running" | "statusText" | "statusTone" | "latestText">>) => void;
+  setRuntime: (
+    partial: Partial<
+      Pick<SubtitleState, "running" | "statusText" | "statusTone" | "latestText" | "capturing" | "shortcutLabel">
+    >,
+  ) => void;
 }
 
 const SUBTITLE_PREFS_KEY = "sayItSubtitlePrefs";
 
 const defaults = (): SubtitlePrefs => ({
   source: "microphone",
-  mode: "scroll",
+  mode: "replace",
   fontFamily: "Microsoft YaHei",
   fontSize: 28,
-  lineCount: 2,
+  lineCount: 1,
   width: 880,
   anchor: "bottom",
   offsetY: 64,
@@ -52,7 +58,7 @@ function clampPrefs(prefs: SubtitlePrefs): SubtitlePrefs {
   return {
     ...prefs,
     fontSize: Math.min(64, Math.max(18, Number(prefs.fontSize) || 28)),
-    lineCount: Math.min(4, Math.max(1, Math.round(Number(prefs.lineCount) || 2))),
+    lineCount: Math.min(4, Math.max(1, Math.round(Number(prefs.lineCount) || 1))),
     width: Math.min(1280, Math.max(420, Number(prefs.width) || 880)),
     offsetY: Math.min(220, Math.max(-180, Number(prefs.offsetY) || 64)),
     backgroundOpacity: Math.min(100, Math.max(0, Number(prefs.backgroundOpacity) || 72)),
@@ -85,6 +91,8 @@ export const useSubtitleStore = create<SubtitleState>((set, get) => ({
   statusText: "实时字幕未开启",
   statusTone: "",
   latestText: "",
+  capturing: false,
+  shortcutLabel: "",
   patch: (partial) => {
     const next = clampPrefs({ ...get().prefs, ...partial });
     persist(next);

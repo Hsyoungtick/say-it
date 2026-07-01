@@ -15,7 +15,17 @@ import {
   handleForwardedKeydown,
   handleForwardedKeyup,
 } from "@/features/dictation/controller";
-import { handleSubtitleAsrEvent, shutdownSubtitles } from "@/features/subtitles/controller";
+import {
+  handleSubtitleAsrEvent,
+  shutdownSubtitles,
+  toggleSubtitles,
+  handleSubtitleShortcutError,
+  isSubtitleCapturing,
+  loadSubtitleShortcut,
+  installSubtitleFocusHotkeyFallback,
+  handleForwardedSubtitleKeydown,
+  handleForwardedSubtitleKeyup,
+} from "@/features/subtitles/controller";
 
 export function useTauriBridge() {
   useTauriEvent(EVT.asrStreamEvent, (data) => {
@@ -35,20 +45,30 @@ export function useTauriBridge() {
   });
   useTauriEvent(EVT.dictationShortcutError, (payload) => handleShortcutError(payload as never));
 
-  useTauriEvent(EVT.indicatorKeydown, (payload) => {
-    if (isCapturing()) return;
-    handleForwardedKeydown((payload || {}) as never);
+  useTauriEvent(EVT.subtitleToggle, () => {
+    if (isSubtitleCapturing()) return;
+    toggleSubtitles();
   });
-  useTauriEvent(EVT.indicatorKeyup, (payload) =>
-    handleForwardedKeyup(((payload || {}) as { code?: string }).code),
-  );
+  useTauriEvent(EVT.subtitleShortcutError, (payload) => handleSubtitleShortcutError(payload as never));
+
+  useTauriEvent(EVT.indicatorKeydown, (payload) => {
+    if (!isCapturing()) handleForwardedKeydown((payload || {}) as never);
+    if (!isSubtitleCapturing()) handleForwardedSubtitleKeydown((payload || {}) as never);
+  });
+  useTauriEvent(EVT.indicatorKeyup, (payload) => {
+    const code = ((payload || {}) as { code?: string }).code;
+    handleForwardedKeyup(code);
+    handleForwardedSubtitleKeyup(code);
+  });
 
   useEffect(() => {
     syncDebugLogToBackend();
     loadDictationSettings();
+    loadSubtitleShortcut();
     useProviderStore.getState().load();
 
     const uninstallHotkeyFallback = installFocusHotkeyFallback();
+    const uninstallSubtitleHotkeyFallback = installSubtitleFocusHotkeyFallback();
     const onUnload = () => {
       shutdownSubtitles();
       shutdownDictationMic();
@@ -56,6 +76,7 @@ export function useTauriBridge() {
     window.addEventListener("beforeunload", onUnload);
     return () => {
       uninstallHotkeyFallback();
+      uninstallSubtitleHotkeyFallback();
       window.removeEventListener("beforeunload", onUnload);
     };
   }, []);

@@ -22,6 +22,18 @@ pub(crate) fn set_dictation_settings(
     if settings.key_code.trim().is_empty() {
         return Err("快捷键不能为空".to_string());
     }
+    {
+        let subtitle = state
+            .subtitle_shortcut
+            .lock()
+            .map_err(|_| "Subtitle shortcut lock failed".to_string())?;
+        if !subtitle.key_code.trim().is_empty()
+            && subtitle.key_code == settings.key_code
+            && subtitle_shortcut_mods(&subtitle) == dictation_mods(&settings)
+        {
+            return Err("该快捷键已被实时字幕占用".to_string());
+        }
+    }
     // 先尝试应用到钩子，确认键码受支持，再写入并持久化。
     apply_dictation_hotkey(&settings)?;
     {

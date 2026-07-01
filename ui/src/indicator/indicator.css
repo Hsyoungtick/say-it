@@ -143,19 +143,6 @@ body,
   height: calc(var(--text-line-height) * var(--subtitle-lines, 2));
 }
 
-.subtitle-mode #pill {
-  height: 28px;
-  padding: 0 11px;
-  border-radius: 14px;
-  font-size: 11px;
-  opacity: 0.82;
-}
-
-.subtitle-mode .dot {
-  width: 7px;
-  height: 7px;
-}
-
 .fresh {
   animation: freshIn 0.18s ease-out both;
 }

@@ -5,6 +5,7 @@ pub(crate) struct RuntimeState {
     pub(crate) providers: Mutex<ProviderSettings>,
     pub(crate) asr_streams: Arc<Mutex<HashMap<String, AsrStreamHandle>>>,
     pub(crate) dictation: Mutex<DictationSettings>,
+    pub(crate) subtitle_shortcut: Mutex<SubtitleShortcutSettings>,
     pub(crate) startup: Mutex<StartupSettings>,
     pub(crate) backend_mic: Arc<Mutex<BackendMicState>>,
     pub(crate) main_window_placement: Mutex<Option<MainWindowPlacement>>,
@@ -112,6 +113,49 @@ pub(crate) fn apply_dictation_hotkey(settings: &DictationSettings) -> Result<(),
     let vk = hotkey::code_to_vk(&settings.key_code)
         .ok_or_else(|| format!("不支持的按键：{}", settings.key_code))?;
     hotkey::set_hotkey(vk, dictation_mods(settings));
+    Ok(())
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub(crate) struct SubtitleShortcutSettings {
+    #[serde(default)]
+    pub(crate) key_code: String,
+    #[serde(default)]
+    pub(crate) ctrl: bool,
+    #[serde(default)]
+    pub(crate) shift: bool,
+    #[serde(default)]
+    pub(crate) alt: bool,
+    #[serde(default)]
+    pub(crate) meta: bool,
+}
+
+pub(crate) fn subtitle_shortcut_mods(settings: &SubtitleShortcutSettings) -> u8 {
+    let mut mods = 0u8;
+    if settings.ctrl {
+        mods |= hotkey::MOD_CTRL;
+    }
+    if settings.shift {
+        mods |= hotkey::MOD_SHIFT;
+    }
+    if settings.alt {
+        mods |= hotkey::MOD_ALT;
+    }
+    if settings.meta {
+        mods |= hotkey::MOD_WIN;
+    }
+    mods
+}
+
+/// 应用实时字幕热键；key_code 为空表示未设置，直接清除即可。
+pub(crate) fn apply_subtitle_hotkey(settings: &SubtitleShortcutSettings) -> Result<(), String> {
+    if settings.key_code.trim().is_empty() {
+        hotkey::clear_subtitle_hotkey();
+        return Ok(());
+    }
+    let vk = hotkey::code_to_vk(&settings.key_code)
+        .ok_or_else(|| format!("不支持的按键：{}", settings.key_code))?;
+    hotkey::set_subtitle_hotkey(vk, subtitle_shortcut_mods(settings));
     Ok(())
 }
 

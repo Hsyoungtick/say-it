@@ -70,6 +70,14 @@ fn main() {
                     *dictation = persisted.dictation;
                 }
                 {
+                    let mut subtitle_shortcut = state.subtitle_shortcut.lock().map_err(|_| {
+                        std::io::Error::other(
+                            "subtitle shortcut lock failed while loading persisted data",
+                        )
+                    })?;
+                    *subtitle_shortcut = persisted.subtitle_shortcut;
+                }
+                {
                     let mut startup = state.startup.lock().map_err(|_| {
                         std::io::Error::other("startup lock failed while loading persisted data")
                     })?;
@@ -89,6 +97,20 @@ fn main() {
                 let _ = app.handle().emit(
                     "dictation-shortcut-error",
                     json!({ "message": err, "key_code": dictation_settings.key_code }),
+                );
+            }
+
+            let subtitle_shortcut_settings = {
+                let state = app.state::<RuntimeState>();
+                let guard = state.subtitle_shortcut.lock().map_err(|_| {
+                    std::io::Error::other("subtitle shortcut lock failed while registering shortcut")
+                })?;
+                guard.clone()
+            };
+            if let Err(err) = apply_subtitle_hotkey(&subtitle_shortcut_settings) {
+                let _ = app.handle().emit(
+                    "subtitle-shortcut-error",
+                    json!({ "message": err, "key_code": subtitle_shortcut_settings.key_code }),
                 );
             }
 
@@ -192,6 +214,8 @@ fn main() {
             open_api_key_page,
             get_dictation_settings,
             set_dictation_settings,
+            get_subtitle_shortcut,
+            set_subtitle_shortcut,
             get_startup_settings,
             set_startup_settings,
             inject_text,

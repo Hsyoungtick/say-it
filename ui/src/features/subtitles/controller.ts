@@ -10,6 +10,26 @@ import {
   scheduleMicShutdown,
   shutdownMic,
 } from "@/features/dictation/micSession";
+import {
+  configureSubtitleHotkeys,
+  startSubtitleShortcutCapture,
+  clearSubtitleShortcut,
+  isSubtitleCapturing,
+  loadSubtitleShortcut,
+  installSubtitleFocusHotkeyFallback,
+  handleForwardedSubtitleKeydown,
+  handleForwardedSubtitleKeyup,
+} from "./hotkeys";
+
+export {
+  startSubtitleShortcutCapture,
+  clearSubtitleShortcut,
+  isSubtitleCapturing,
+  loadSubtitleShortcut,
+  installSubtitleFocusHotkeyFallback,
+  handleForwardedSubtitleKeydown,
+  handleForwardedSubtitleKeyup,
+} from "./hotkeys";
 
 let subtitleSessionId: string | null = null;
 let busy = false;
@@ -27,13 +47,22 @@ function setStatus(statusText: string, statusTone: "" | "ok" | "err" = "") {
   useSubtitleStore.getState().setRuntime({ statusText, statusTone });
 }
 
+configureSubtitleHotkeys({
+  setStatus,
+  toggle: () => toggleSubtitles(),
+});
+
+export function handleSubtitleShortcutError(payload: { key_code?: string; message?: string }) {
+  setStatus(`实时字幕快捷键注册失败（${payload.key_code || "?"}）：${payload.message || "未知错误"}`, "err");
+}
+
 function pushLog(message: string) {
   if (useDictPrefs.getState().prefs.debugLog) {
     console.log(`[subtitles] ${message}`);
   }
 }
 
-function rgba(hex: string, opacity: number) {
+export function rgba(hex: string, opacity: number) {
   const value = hex.replace("#", "").trim();
   const full =
     value.length === 3
@@ -49,8 +78,10 @@ function rgba(hex: string, opacity: number) {
 }
 
 export async function syncSubtitleIndicator(prefs: SubtitlePrefs = useSubtitleStore.getState().prefs) {
+  // 单句替换模式下永远只显示当前一行，行高不应受"显示行数"设置影响。
+  const effectiveLines = prefs.mode === "replace" ? 1 : prefs.lineCount;
   const lineHeight = Math.round(prefs.fontSize * 1.38);
-  const height = Math.max(136, lineHeight * prefs.lineCount + 86);
+  const height = Math.max(136, lineHeight * effectiveLines + 86);
   await cmdSilent(CMD.setIndicatorLayout, {
     width: prefs.width,
     height,
@@ -63,7 +94,7 @@ export async function syncSubtitleIndicator(prefs: SubtitlePrefs = useSubtitleSt
       displayMode: prefs.mode,
       fontFamily: prefs.fontFamily,
       fontSize: prefs.fontSize,
-      lineCount: prefs.lineCount,
+      lineCount: effectiveLines,
       textColor: prefs.textColor,
       backgroundColor: rgba(prefs.backgroundColor, prefs.backgroundOpacity),
       rounded: prefs.rounded,

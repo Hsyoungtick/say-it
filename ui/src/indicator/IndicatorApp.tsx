@@ -212,12 +212,14 @@ export function IndicatorApp() {
           <div id="text-content" ref={textContentRef} />
         </div>
       </div>
-      <div className={`pill ${pillPhase}`} id="pill">
-        <span className="dot" />
-        <span className="label" id="label">
-          {LABELS[pillPhase]}
-        </span>
-      </div>
+      {mode !== "subtitle" && (
+        <div className={`pill ${pillPhase}`} id="pill">
+          <span className="dot" />
+          <span className="label" id="label">
+            {LABELS[pillPhase]}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
