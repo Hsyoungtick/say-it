@@ -80,7 +80,7 @@ export function FunAsrHotwordsPanel() {
   };
 
   return (
-    <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+    <>
       <Field label="Fun-ASR 热词（每行一个，格式：热词,权重；权重 1-5，可省略默认 4）">
         <Textarea
           rows={8}
@@ -102,6 +102,6 @@ export function FunAsrHotwordsPanel() {
         {vocabularyId && <span className="text-xs text-white/40">词表 ID：{vocabularyId}</span>}
       </div>
       {message && <p className="mt-2 text-xs text-white/50">{message}</p>}
-    </div>
+    </>
   );
 }

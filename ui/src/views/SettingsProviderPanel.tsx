@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { Card, CardTitle, CardDescription } from "@/components/ui/Card";
+import { Collapse } from "@/components/ui/Collapse";
 import { Button } from "@/components/ui/Button";
 import { Field, CheckField } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Slider } from "@/components/ui/Slider";
 import { CMD, cmd } from "@/lib/tauri";
 import { useProviderStore } from "@/store/useProviderStore";
+import { FunAsrHotwordsPanel } from "@/views/FunAsrHotwordsPanel";
+
+const NESTED_COLLAPSE_CLASS = "border-white/10 bg-black/20";
+const NESTED_HEADER_CLASS = "px-3 py-2.5";
+const NESTED_BODY_CLASS = "px-3 py-3";
 
 const API_KEY_MASK = "••••••••••••••••";
 
@@ -148,107 +153,127 @@ export function SettingsProviderPanel() {
   };
 
   return (
-    <Card>
-      <CardTitle>Fun-ASR</CardTitle>
-      <CardDescription>
-        <button
-          type="button"
-          onClick={openApiKeyPage}
-          className="text-[var(--color-accent-light)] underline-offset-4 hover:underline"
-        >
-          点击此处获取 API Key
-        </button>
-      </CardDescription>
-
-      <div className="mt-4">
-        <div className="relative">
-          <Input
-            ref={apiKeyInputRef}
-            type={apiKeyVisible && (apiKey || savedApiKey) ? "text" : "password"}
-            placeholder={hasApiKey ? "输入新 API Key 可覆盖当前配置" : "输入阿里云百炼 API Key"}
-            value={apiKeyInputValue}
-            onFocus={beginApiKeyEdit}
-            onBlur={finishApiKeyEdit}
-            onChange={(event) => {
-              setApiKey(event.target.value);
-              setApiKeyDirty(true);
-              setSavedApiKey("");
-            }}
-            className="pr-11"
-          />
+    <div className="flex flex-col gap-3">
+      <Collapse
+        title={funasr?.displayName || "Fun-ASR"}
+        subtitle={hasApiKey ? "已配置 API Key" : "未配置 API Key"}
+        defaultOpen
+      >
+        <p className="text-xs text-white/45">
           <button
             type="button"
-            aria-label={apiKeyVisible ? "隐藏 API Key" : "显示 API Key"}
-            onClick={() => setApiKeyVisible((current) => !current)}
-            disabled={!apiKey && !savedApiKey}
-            className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-white/45 transition-colors hover:bg-white/[0.08] hover:text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--color-accent)_45%,transparent)] disabled:cursor-not-allowed disabled:opacity-35"
+            onClick={openApiKeyPage}
+            className="text-[var(--color-accent-light)] underline-offset-4 hover:underline"
           >
-            <EyeIcon visible={apiKeyVisible} />
+            点击此处获取 API Key
           </button>
-        </div>
-      </div>
-      <p className="mt-2 text-xs text-white/45">
-        当前状态：{hasApiKey ? "已配置 API Key" : "未配置 API Key"}
-        {apiKeySaving ? " · 正在自动保存..." : providerStatus ? ` · ${providerStatus}` : ""}
-      </p>
+        </p>
 
-      <div className="mt-5 rounded-lg border border-white/10 bg-black/20 p-3">
-        <p className="text-sm font-medium text-white/80">识别高级参数</p>
         <div className="mt-3">
-          <p className="text-xs text-white/50">语种提示（language_hints）</p>
-          <div className="mt-1.5 flex gap-4">
-            {[
-              { value: "zh", label: "中文" },
-              { value: "en", label: "英文" },
-              { value: "ja", label: "日语" },
-            ].map((lang) => (
-              <CheckField
-                key={lang.value}
-                checked={languageHints.includes(lang.value)}
-                onChange={() => toggleLanguageHint(lang.value)}
-              >
-                {lang.label}
-              </CheckField>
-            ))}
+          <div className="relative">
+            <Input
+              ref={apiKeyInputRef}
+              type={apiKeyVisible && (apiKey || savedApiKey) ? "text" : "password"}
+              placeholder={hasApiKey ? "输入新 API Key 可覆盖当前配置" : "输入阿里云百炼 API Key"}
+              value={apiKeyInputValue}
+              onFocus={beginApiKeyEdit}
+              onBlur={finishApiKeyEdit}
+              onChange={(event) => {
+                setApiKey(event.target.value);
+                setApiKeyDirty(true);
+                setSavedApiKey("");
+              }}
+              className="pr-11"
+            />
+            <button
+              type="button"
+              aria-label={apiKeyVisible ? "隐藏 API Key" : "显示 API Key"}
+              onClick={() => setApiKeyVisible((current) => !current)}
+              disabled={!apiKey && !savedApiKey}
+              className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-white/45 transition-colors hover:bg-white/[0.08] hover:text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--color-accent)_45%,transparent)] disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              <EyeIcon visible={apiKeyVisible} />
+            </button>
           </div>
         </div>
-        <CheckField
-          className="mt-3"
-          checked={semanticPunctuation}
-          onChange={setSemanticPunctuation}
-        >
-          语义断句（semantic_punctuation_enabled）
-        </CheckField>
-        <div className="mt-3">
-          <Slider
-            label="断句静音阈值"
-            min={200}
-            max={6000}
-            step={100}
-            value={maxSentenceSilence}
-            format={(value) => `${value.toFixed(0)} ms`}
-            onChange={setMaxSentenceSilence}
-          />
-        </div>
-        <CheckField className="mt-3" checked={heartbeat} onChange={setHeartbeat}>
-          心跳包（heartbeat，长时间静音保活连接）
-        </CheckField>
-        <Field label="噪音判定阈值（speech_noise_threshold，-1.0 ~ 1.0，留空使用默认）" className="mt-3">
-          <Input
-            type="number"
-            min={-1}
-            max={1}
-            step={0.1}
-            value={noiseThreshold}
-            onChange={(event) => setNoiseThreshold(event.target.value)}
-          />
-        </Field>
-        <Button size="sm" className="mt-3" onClick={saveAdvanced}>
-          保存高级参数
-        </Button>
-      </div>
+        <p className="mt-2 text-xs text-white/45">
+          当前状态：{hasApiKey ? "已配置 API Key" : "未配置 API Key"}
+          {apiKeySaving ? " · 正在自动保存..." : providerStatus ? ` · ${providerStatus}` : ""}
+        </p>
 
-      {message && <p className="mt-3 text-xs text-white/50">{message}</p>}
-    </Card>
+        <div className="mt-4 flex flex-col gap-3">
+          <Collapse
+            title="热词"
+            className={NESTED_COLLAPSE_CLASS}
+            headerClassName={NESTED_HEADER_CLASS}
+            bodyClassName={NESTED_BODY_CLASS}
+          >
+            <FunAsrHotwordsPanel />
+          </Collapse>
+
+          <Collapse
+            title="高级参数"
+            className={NESTED_COLLAPSE_CLASS}
+            headerClassName={NESTED_HEADER_CLASS}
+            bodyClassName={NESTED_BODY_CLASS}
+          >
+            <div>
+              <p className="text-xs text-white/50">语种提示（language_hints）</p>
+              <div className="mt-1.5 flex gap-4">
+                {[
+                  { value: "zh", label: "中文" },
+                  { value: "en", label: "英文" },
+                  { value: "ja", label: "日语" },
+                ].map((lang) => (
+                  <CheckField
+                    key={lang.value}
+                    checked={languageHints.includes(lang.value)}
+                    onChange={() => toggleLanguageHint(lang.value)}
+                  >
+                    {lang.label}
+                  </CheckField>
+                ))}
+              </div>
+            </div>
+            <CheckField
+              className="mt-3"
+              checked={semanticPunctuation}
+              onChange={setSemanticPunctuation}
+            >
+              语义断句（semantic_punctuation_enabled）
+            </CheckField>
+            <div className="mt-3">
+              <Slider
+                label="断句静音阈值"
+                min={200}
+                max={6000}
+                step={100}
+                value={maxSentenceSilence}
+                format={(value) => `${value.toFixed(0)} ms`}
+                onChange={setMaxSentenceSilence}
+              />
+            </div>
+            <CheckField className="mt-3" checked={heartbeat} onChange={setHeartbeat}>
+              心跳包（heartbeat，长时间静音保活连接）
+            </CheckField>
+            <Field label="噪音判定阈值（speech_noise_threshold，-1.0 ~ 1.0，留空使用默认）" className="mt-3">
+              <Input
+                type="number"
+                min={-1}
+                max={1}
+                step={0.1}
+                value={noiseThreshold}
+                onChange={(event) => setNoiseThreshold(event.target.value)}
+              />
+            </Field>
+            <Button size="sm" className="mt-3" onClick={saveAdvanced}>
+              保存高级参数
+            </Button>
+          </Collapse>
+        </div>
+
+        {message && <p className="mt-3 text-xs text-white/50">{message}</p>}
+      </Collapse>
+    </div>
   );
 }

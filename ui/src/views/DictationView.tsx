@@ -6,7 +6,6 @@ import { LogPanel } from "@/components/ui/LogPanel";
 import { Tabs, type TabItem } from "@/components/ui/Tabs";
 import { LocalRulesPanel } from "@/views/LocalRulesPanel";
 import { DictationShortcutsPanel } from "@/views/DictationShortcutsPanel";
-import { FunAsrHotwordsPanel } from "@/views/FunAsrHotwordsPanel";
 import { cn } from "@/lib/cn";
 import { useDictationStore } from "@/store/useDictationStore";
 import { useDictPrefs } from "@/store/useDictPrefs";
@@ -18,12 +17,11 @@ const toneClass: Record<string, string> = {
   err: "text-[#ff6b6b]",
 };
 
-type TabKey = "basic" | "local" | "hotwords" | "debug";
+type TabKey = "basic" | "local" | "debug";
 
 const TABS: TabItem<TabKey>[] = [
   { key: "basic", label: "快捷键" },
   { key: "local", label: "本地处理" },
-  { key: "hotwords", label: "热词" },
   { key: "debug", label: "调试" },
 ];
 
@@ -46,7 +44,6 @@ export function DictationView() {
 
       {tab === "basic" && <DictationShortcutsPanel />}
       {tab === "local" && <LocalRulesPanel />}
-      {tab === "hotwords" && <FunAsrHotwordsPanel />}
       {tab === "debug" && (
         <div className="mt-4">
           <Button variant={recording ? "danger" : "primary"} onClick={toggleDictation}>
